@@ -1,0 +1,12 @@
+{
+  "name": "js-programing-language",
+  "version": "1.0.0",
+  "description": "write programming language in javascript",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Nicolas Choquet <nicolachoquet06250@gmail.com>",
+  "license": "ISC"
+}
