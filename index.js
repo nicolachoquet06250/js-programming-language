@@ -10,22 +10,25 @@ export const FALSE = { type: "bool", value: false };
 
 const globalEnv = new Environment();
 
-globalEnv.def("time", func => {
-    try {
-        console.time("time");
+let fibJS;
+globalEnv.def("fibJS", (fibJS = n => n < 2 ? n : fibJS(n - 1) + fibJS(n - 2)));
 
-        return func();
-    } finally {
-        console.timeEnd("time");
-    }
+globalEnv.def("time", fn => {
+    const t1 = Date.now();
+    const ret = fn();
+    const t2 = Date.now();
+    process.stdout.write(`Time: ${(t2 - t1)}ms`);
+    return ret;
 });
 
 if (typeof process !== "undefined") (() => {
     globalEnv.def("println", val => console.log(val));
     globalEnv.def("print", val => process.stdout.write(val.toString()));
+
     let code = fs.readFileSync(process.cwd() + '/test.lang').toString();
 
     process.stdin.setEncoding("utf8");
+
     const input = InputStream(code);
     const token = TokenStream(input);
     const ast = parse(token);
