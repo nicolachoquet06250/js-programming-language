@@ -26,7 +26,9 @@ if (typeof process !== "undefined") (() => {
     let code = fs.readFileSync(process.cwd() + '/test.lang').toString();
 
     process.stdin.setEncoding("utf8");
-    const ast = parse(TokenStream(InputStream(code)));
+    const input = InputStream(code);
+    const token = TokenStream(input);
+    const ast = parse(token);
 
     evaluate(ast, globalEnv);
 })();

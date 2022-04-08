@@ -26,13 +26,24 @@ const apply_op = (op, a, b) => {
 	}
 };
 
-export const make_lambda = (env, exp) => (...args) => {
-	const names = exp.vars;
-	const scope = env.extend();
+export const make_lambda = (env, exp) => {
+	const lambda = (...args) => {
+		const names = exp.vars;
+		const scope = env.extend();
 
-	for (let i = 0; i < names.length; ++i)
-		scope.def(names[i], i < args.length ? args[i] : false);
-	return evaluate(exp.body, scope);
+		for (let i = 0; i < names.length; ++i) {
+			scope.def(names[i], i < args.length ? args[i] : false);
+		}
+
+		return evaluate(exp.body, scope);
+	};
+
+	if (exp.name) {
+		env = env.extend();
+		env.def(exp.name, lambda);
+	}
+
+	return lambda;
 };
 
 export const evaluate = (exp, env) => {
@@ -41,6 +52,13 @@ export const evaluate = (exp, env) => {
 		case "str":
 		case "bool": return exp.value;
 		case "var": return env.get(exp.value);
+		case "let":
+			exp.vars.forEach(v => {
+				const scope = env.extend();
+				scope.def(v.name, v.def ? evaluate(v.def, env) : false);
+				env = scope;
+			});
+			return evaluate(exp.body, env);
 		case "assign":
 			if (exp.left.type !== "var")
 				throw new Error("Cannot assign to " + JSON.stringify(exp.left));

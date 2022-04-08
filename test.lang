@@ -1,12 +1,106 @@
+separator = lambda(section) {
+    print("-------------------------- ");
+    print(section);
+    println(" -------------------------");
+};
+
+separator("print range");
+
 print_range = λ(a, b) if a <= b {
-                        print(a);
-                        if a + 1 <= b {
-                          print(", ");
-                          print_range(a + 1, b);
-                        } else println("");
-                      };
+    print(a);
+    if a + 1 <= b {
+        print(", ");
+        print_range(a + 1, b);
+    } else println("");
+};
 print_range(1, 10);
 
-sum = lambda(x, y) x + y;
+separator("sum");
 
+sum = lambda(x, y) x + y;
 println(sum(5, 10));
+
+separator("cons");
+
+cons = λ(a, b) λ(f) f(a, b);
+car = λ(cell) cell(λ(a, b) a);
+cdr = λ(cell) cell(λ(a, b) b);
+NIL = λ(f) f(NIL, NIL);
+
+x = cons(10, 20);
+println(car(x));    # prints 10
+println(cdr(x));    # prints 20
+
+separator("car");
+
+x = cons(1, cons(2, cons(3, cons(4, cons(5, NIL)))));
+println(car(x));                      # 1
+println(car(cdr(x)));                 # 2
+println(car(cdr(cdr(x))));            # 3
+println(car(cdr(cdr(cdr(x)))));       # 4
+println(car(cdr(cdr(cdr(cdr(x))))));  # 5
+
+separator("foreach");
+
+foreach = λ(list, f)
+            if list != NIL {
+              f(car(list));
+              foreach(cdr(list), f);
+            };
+foreach(x, println);
+
+separator("range");
+
+range = λ(a, b)
+          if a <= b then cons(a, range(a + 1, b))
+                    else NIL;
+
+# print the squares of 1..8
+foreach(range(1, 8), λ(x) println(x * x));
+
+separator("set-car!/set-cdr!");
+
+cons = λ(x, y)
+         λ(a, i, v)
+           if a == "get"
+              then if i == 0 then x else y
+              else if i == 0 then x = v else y = v;
+
+car = λ(cell) cell("get", 0);
+cdr = λ(cell) cell("get", 1);
+set-car! = λ(cell, val) cell("set", 0, val);
+set-cdr! = λ(cell, val) cell("set", 1, val);
+
+# NIL can be a real cons this time
+NIL = cons(0, 0);
+set-car!(NIL, NIL);
+set-cdr!(NIL, NIL);
+
+## test:
+x = cons(1, 2);
+println(car(x));
+println(cdr(x));
+set-car!(x, 10);
+set-cdr!(x, 20);
+println(car(x));
+println(cdr(x));
+
+separator("let");
+
+println(let loop (n = 100)
+          if n > 0 then n + loop(n - 1)
+                   else 0);
+
+let (x = 2, y = x + 1, z = x + y)
+  println(x + y + z);
+
+# errors out, the vars are bound to the let body
+# print(x + y + z);
+
+let (x = 10) {
+  let (x = x * 2, y = x * x) {
+    println(x);  ## 20
+    println(y);  ## 400
+  };
+  println(x);  ## 10
+};

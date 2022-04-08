@@ -1,11 +1,11 @@
 
 /**
- * @param {typeof ReturnType<InputStream>} input
+ * @param {{ next: (function(): string), peek: (function(): string), eof: (function(): boolean), croak: (function(msg: string): void) }} input
  * @return {{ next: (function(): string), peek: (function(): string), eof: (function(): boolean), croak: (function(msg: string): void) }}
  */
 export const TokenStream = input => {
 	let current = null;
-	const keywords = " if then else lambda λ true false ";
+	const keywords = " let if then else lambda λ true false ";
 
 	const peek = ()  => current || (current = read_next());
 	const eof = () => peek() == null;
