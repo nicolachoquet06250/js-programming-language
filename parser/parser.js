@@ -52,16 +52,12 @@ export class Parser {
 		if (new Tester(this, value).keyword('fn')) {
 			const defs = this.delimited('(', ')', ',', () => this.expression());
 
-			return {
-				type: 'let',
-				name: name.value,
-				value: {
-					type: "lambda",
-					name: name,
-					vars: defs.map(def => def),
-					body: this.expression()
-				}
-			};
+			value = {
+				type: "lambda",
+				name: name,
+				vars: defs,
+				body: this.expression()
+			}
 		}
 
 		return {

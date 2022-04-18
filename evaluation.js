@@ -69,7 +69,12 @@ export const evaluate = (exp, env, s = 1) => {
 		case 'num':
 		case 'bool':
 		case 'str': return exp;
-		case 'array': return { ...exp, value: exp.value.map(e => e.value) };
+		case 'array': return {
+			...exp,
+			value: exp.value.map(e => {
+				return e.value
+			})
+		};
 		case 'var': return env.getVar(exp.value);
 		case 'methodCall':
 			const input = env.getVar(exp.input.value);

@@ -92,23 +92,23 @@ class Reader extends Parent {
 	}
 
 	get array() {
-		const a = [];
+		const value = [];
 		this.while(ch => {
 			if (ch !== '[' && ch !== ']' && ch !== ' '  && ch !== "," && ch !== ';') {
 				if (new Tester(this.stream).is_quote(ch)) {
-					a.push(this.string(ch))
+					value.push(this.string(ch))
 				} else if (!Number.isNaN(Number(ch))) {
-					a.push(this.number);
+					value.push(this.number);
 				}
 				const v = this.ident;
 				if (v.value !== '') {
-					a.push(v);
+					value.push(v);
 				}
 			}
 			return true;
 		});
 
-		return { type: 'array', value: a };
+		return { type: 'array', value };
 	}
 
 	get ident() {
