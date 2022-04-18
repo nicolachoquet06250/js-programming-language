@@ -1,7 +1,7 @@
 {
-  "name": "js-programing-language",
+  "name": "weblang",
   "version": "1.0.0",
-  "description": "write programming language in javascript",
+  "description": "création d'un langage nommé weblang utilisable aussi bien en cli que en javascript via une fonction",
   "main": "index.js",
   "type": "module",
   "scripts": {

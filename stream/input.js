@@ -1,48 +1,154 @@
-/**
- * @param {string} input
- * @return {{ next: (function(): string), peek: (function(): string), eof: (function(): boolean), croak: (function(msg: string): void) }}
- */
-export const InputStream = input => {
-	let pos = 0;
-	let line = 1;
-	let col = 0;
+import { Stream } from "./stream.js";
+import { DEBUG, keywords, operators, spaces, symbols } from "../constants.js";
 
-	/**
-	 * returns the next value and also discards it from the stream.
-	 * @returns {string}
-	 */
-	const next = () => {
-		const ch = input.charAt(pos++);
+export class InputStream extends Stream {
+	line = 0;
+	pos = 0;
 
-		if (ch === "\n" || ch === "\r" || ch === "\r\n" || ch === "\n\r") {
-			line++;
-			col = 0;
-		} else col++;
+	constructor(input) {
+		super(input);
+
+		this.parsedCode = this.generateAnalysedTable(keywords, symbols, operators, spaces);
+
+		if (DEBUG) {
+			console.log('|- Program ----------------------------------------------------------------------------|');
+			console.log(this.input.split('\n')
+					.map((l, i) =>
+						`${i + 1}. ${l}`).join('\n'),
+				'\n'
+			);
+			console.log('|- Parsing ----------------------------------------------------------------------------|');
+			console.log(this.parsedCode);
+		}
+	}
+
+	generateAnalysedTable(keywords, symbols, operators, spaces) {
+		const analysedCode = [];
+
+		for (const line of this.input.split('\n')) {
+			const analysedCodeLine = [];
+
+			let id = 0;
+			for (const word of line.split(' ')) {
+				if (operators.indexOf(word) !== -1) {
+					analysedCodeLine.push(word);
+				} else if (keywords.indexOf(word) === -1) {
+					const wordArray = word.split('');
+					let tmpWord = '';
+
+					for (const ch of wordArray) {
+						if (
+							symbols.indexOf(ch) !== -1 ||
+							spaces.indexOf(ch) !== -1
+						) {
+							if (tmpWord) {
+								analysedCodeLine.push(tmpWord);
+							}
+							analysedCodeLine.push(ch);
+							tmpWord = '';
+							continue;
+						}
+
+						if (
+							symbols.indexOf(tmpWord + ch) !== -1 ||
+							keywords.indexOf(tmpWord + ch) !== -1
+						) {
+							analysedCodeLine.push(tmpWord + ch);
+							tmpWord = '';
+							continue;
+						}
+
+						if (/[0-9.]/i.test(ch)) {
+							if (/[0-9.]/i.test(analysedCodeLine[analysedCodeLine.length - 1])) {
+								analysedCodeLine[analysedCodeLine.length - 1] += ch;
+							} else {
+								analysedCodeLine.push(ch);
+							}
+							tmpWord = '';
+							continue;
+						}
+
+						tmpWord += ch;
+
+						if (analysedCodeLine.length > 0) {
+							if (
+								keywords.indexOf(analysedCodeLine[analysedCodeLine.length - 1]) === -1 &&
+								spaces.indexOf(analysedCodeLine[analysedCodeLine.length - 1]) === -1 &&
+								symbols.indexOf(analysedCodeLine[analysedCodeLine.length - 1]) === -1
+							) {
+								analysedCodeLine[analysedCodeLine.length - 1] += ch;
+							} else {
+								analysedCodeLine[analysedCodeLine.length] = ch;
+							}
+							tmpWord = '';
+						} else {
+							analysedCodeLine[0] = ch;
+							tmpWord = '';
+						}
+					}
+				} else {
+					analysedCodeLine.push(word);
+				}
+
+				if (id < line.split(' ').length - 1) {
+					analysedCodeLine.push(' ');
+				}
+
+				id++;
+			}
+
+			analysedCode.push(analysedCodeLine);
+		}
+
+		return analysedCode;
+	}
+
+	calculatePosition(line, id) {
+		return {
+			line,
+			column:  this.parsedCode[line - 1].reduce((r, c, i) => {
+				if (i <= id) {
+					r.part.push(c);
+				} else if (i === id + 1) {
+					r.part.map((w, index) => {
+						if (w === '\t') {
+							r.col++;
+						} else if (index < r.part.length - 2) {
+							r.part[index]
+								.replace('\t', '-')
+								.replace('\n', '-')
+								.replace('\r', '-')
+								.split('')
+								.map(() => r.col++);
+						}
+					});
+				}
+				return r;
+			}, { col: 1, part: [] }).col
+		};
+	}
+
+	next() {
+		let ch = this.parsedCode[this.line]?.[this.pos++];
+
+		if (!ch) {
+			this.pos = 0;
+			ch = this.parsedCode[this.line++]?.[this.pos];
+		}
 
 		return ch;
-	};
+	}
 
-	/**
-	 * returns the next value but without removing it from the stream.
-	 * @returns {string}
-	 */
-	const peek = () => input.charAt(pos);
+	peek() {
+		return this.parsedCode[this.line]?.[this.pos] ?? '';
+	}
 
-	/**
-	 * returns true if and only if there are no more values in the stream.
-	 * @returns {boolean}
-	 */
-	const eof = () => peek() === "";
+	eof() {
+		return this.peek() === '';
+	}
 
-	/**
-	 * does throw new Error(msg).
-	 * @param {string} msg
-	 * @throws Error
-	 * @return void
-	 */
-	const croak = msg => {
-		throw new Error(msg + " (" + line + ":" + col + ")");
-	};
-
-	return { next, peek, eof, croak };
-};
+	croak(msg) {
+		const { line, column } = this.calculatePosition(this.line + 1, this.pos);
+		throw new Error(`${msg} (${line}:${column})`);
+	}
+}

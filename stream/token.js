@@ -1,113 +1,222 @@
+import { Stream } from "./stream.js";
+import { generateNumber, generateOperation, generatePunc, getDynamicType } from "../types/index.js";
+import { generateString } from "../types/string.js";
+import { keywords, operators, symbols } from "../constants.js";
+
+class Parent {
+	/**
+	 * @type {Stream|TokenStream} stream
+	 */
+	stream = null;
+	/**
+	 * @param {Stream|TokenStream} stream
+	 */
+	constructor(stream) {
+		this.stream = stream;
+	}
+}
+
+class Tester extends Parent {
+	is_keyword(x) {
+		return keywords.indexOf(x) !== -1;
+	}
+	is_digit(ch) {
+		return /[0-9]/i.test(ch);
+	}
+	is_id_start(ch) {
+		return /[a-z_]/i.test(ch);
+	}
+	is_id(ch) {
+		return this.is_id_start(ch) || '?!-<>0123456789'.indexOf(ch) !== -1;
+	}
+	is_op_char(ch) {
+		return operators.indexOf(ch) !== -1;
+	}
+	is_punctuation(ch) {
+		return symbols.indexOf(ch) !== -1;
+	}
+	is_whitespace(ch) {
+		return ' \t\n\r'.indexOf(ch) !== -1;
+	}
+	is_simple_quote(ch) {
+		return ch === "'";
+	}
+	is_double_quote(ch) {
+		return ch === '"';
+	}
+	is_quote(ch) {
+		return this.is_simple_quote(ch) || this.is_double_quote(ch);
+	}
+	is_open_hook(ch) {
+		return this.is_punctuation(ch) && ch === '[';
+	}
+}
 
 /**
- * @param {{ next: (function(): string), peek: (function(): string), eof: (function(): boolean), croak: (function(msg: string): void) }} input
- * @return {{ next: (function(): string), peek: (function(): string), eof: (function(): boolean), croak: (function(msg: string): void) }}
+ * @param {Stream} stream
  */
-export const TokenStream = input => {
-	let current = null;
-	const keywords = " let if then else lambda λ true false ";
+function skip_comment(stream) {
+	new Reader(stream)
+		.while(ch => ch !== '\n' && ch !== '\r');
+	stream.input.next();
+}
 
-	const peek = ()  => current || (current = read_next());
-	const eof = () => peek() == null;
-	const next = () => {
-		const tok = current;
-		current = null;
-		return tok || read_next();
-	};
-
-	const is_keyword = x => keywords.indexOf(` ${x} `) >= 0;
-	const is_digit = ch => /[0-9]/i.test(ch);
-	const is_id_start = ch => /[a-zλ_]/i.test(ch);
-	const is_id = ch => is_id_start(ch) || "?!-<>=0123456789".indexOf(ch) >= 0;
-	const is_op_char = ch => "+-*/%=&|<>!".indexOf(ch) >= 0;
-	const is_punc = ch => ",;(){}[]".indexOf(ch) >= 0;
-	const is_whitespace = ch => " \t\n\r".indexOf(ch) >= 0;
-	const read_while = predicate => {
+class Reader extends Parent {
+	while(predicate) {
 		let str = '';
 
-		while (!input.eof() && predicate(input.peek()))
-			str += input.next();
+		while (
+			!this.stream.input.eof() &&
+			predicate(this.stream.input.peek())
+		) {
+			str += this.stream.input.next();
+		}
 
 		return str;
-	};
-	const read_number = () => {
-		let has_dot = false;
+	}
 
-		const number = read_while(function(ch){
+	get number() {
+		let hasDot = false;
+
+		const number = this.while(ch => {
 			if (ch === '.') {
-				if (has_dot) return false;
-				has_dot = true;
-				return true;
+				return hasDot ? false : (() => {
+					hasDot = true;
+					return true
+				})();
 			}
-			return is_digit(ch);
+			return new Tester(this.stream).is_digit(ch);
 		});
 
-		return { type: "num", value: parseFloat(number) };
-	};
-	const read_ident = () => {
-		const id = read_while(is_id);
+		return generateNumber(number);
+	}
 
-		return {
-			type  : is_keyword(id) ? 'kw' : 'var',
-			value : id
-		};
-	};
-	const read_escaped = end => {
+	get array() {
+		const a = [];
+		this.while(ch => {
+			if (ch !== '[' && ch !== ']' && ch !== ' '  && ch !== "," && ch !== ';') {
+				if (new Tester(this.stream).is_quote(ch)) {
+					a.push(this.string(ch))
+				} else if (!Number.isNaN(Number(ch))) {
+					a.push(this.number);
+				}
+				const v = this.ident;
+				if (v.value !== '') {
+					a.push(v);
+				}
+			}
+			return true;
+		});
+
+		return { type: 'array', value: a };
+	}
+
+	get ident() {
+		const tester = new Tester(this.stream);
+
+		const value = this.while((...a) =>
+			tester.is_id(...a));
+
+		return getDynamicType(
+			(tester
+				.is_keyword(value)
+					? 'keyword' : 'var'),
+			value
+		);
+	}
+
+	escaped(end) {
 		let escaped = false;
-		let str = "";
+		let str = '';
 
-		input.next();
+		this.stream.input.next();
 
-		while (!input.eof()) {
-			const ch = input.next();
+		while (!this.stream.input.eof()) {
+			const ch = this.stream.input.next();
 
 			if (escaped) {
 				str += ch;
 				escaped = false;
 			}
-			else if (ch === "\\") escaped = true;
+			else if (ch === '\\') escaped = true;
 			else if (ch === end) break;
 			else str += ch;
 		}
+
 		return str;
-	};
-	const read_string = () =>  ({ type: "str", value: read_escaped('"') });
-	const skip_comment = () => {
-		read_while(ch => ch !== '\n' && ch !== '\r' && ch !== '\n\r' && ch !== '\r\n');
-		input.next();
-	};
-	const read_next = () => {
-		read_while(is_whitespace);
+	}
 
-		if (input.eof()) return null;
+	string(separator) {
+		return generateString(separator, this);
+	}
 
-		const ch = input.peek();
+	next(nbTry = 1) {
+		const tester = new Tester(this.stream);
 
-		if (ch === "#") {
-			skip_comment();
-			return read_next();
+		this.while((...a) =>
+			tester.is_whitespace(...a));
+
+		if (this.stream.input.eof()) {
+			this.stream.input.next();
+
+			if (nbTry > 3) return null;
+			return this.next(nbTry + 1);
 		}
 
-		if (ch === '"') return read_string();
+		const ch = this.stream.input.peek();
 
-		if (is_digit(ch)) return read_number();
+		if (ch === '#') {
+			skip_comment(this.stream);
+			return this.next();
+		}
 
-		if (is_id_start(ch)) return read_ident();
+		if (tester.is_quote(ch)) {
+			return this.string(ch);
+		}
+		if (tester.is_digit(ch)) {
+			return this.number;
+		}
+		if (tester.is_open_hook(ch)) {
+			return this.array;
+		}
+		if (tester.is_id_start(ch)) {
+			return this.ident;
+		}
+		if (tester.is_punctuation(ch)) {
+			const next = this.stream.input.next();
+			return generatePunc(next);
+		}
+		if (tester.is_op_char(ch)) {
+			return generateOperation(
+				this.while((...a) => {
+					return tester.is_op_char(...a);
+				})
+			);
+		}
 
-		if (is_punc(ch)) return {
-			type  : "punc",
-			value : input.next()
-		};
+		this.stream.input
+			.croak(`Can't handle character: ${ch}`);
+	}
+}
 
-		if (is_op_char(ch)) return {
-			type  : "op",
-			value : read_while(is_op_char)
-		};
+export class TokenStream extends Stream {
+	current = null;
 
-		input.croak(`Can't handle character: ${ch}`);
-	};
+	peek() {
+		return this.current || (this.current = new Reader(this).next());
+	}
 
-	const { croak } = input;
+	eof() {
+		return this.peek() === null;
+	}
 
-	return { next, peek, eof, croak };
-};
+	next() {
+		const tok = this.current;
+		this.current = null;
+		return tok || new Reader(this).next();
+	}
+
+	croak(msg) {
+		this.input.croak(msg);
+	}
+}
