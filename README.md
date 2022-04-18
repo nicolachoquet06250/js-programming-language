@@ -10,3 +10,7 @@ dans le but de l'intégrer dans [mon WebOS](https://github.com/nicolachoquet0625
 [https://lisperator.net/pltut/](https://lisperator.net/pltut/)
 
 Je me suis arrêté [ici](https://lisperator.net/pltut/cps-evaluator/)
+
+## ANNEXES
+ - https://gist.github.com/abritinthebay/d80eb99b2726c83feb0d97eab95206c4
+ - https://lisperator.net/pltut/
